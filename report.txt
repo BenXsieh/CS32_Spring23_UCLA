@@ -1,0 +1,312 @@
+1) Design
+- Given the public interfaces are known here is how I utilized the private section of the class for each class.
+
+Board:The private section of the class includes:
+
+Two private member variables north_vector and south_vector, which are integer vectors representing the number of beans in each hole for the north and south sides of the board, respectively.
+m_nHoles, an integer indicating the number of holes in each side.
+total_beans, an integer representing the total number of beans in the game.
+buildBoard(int beans, vector<int>& m_vector), a private helper function used to initialize the vectors with the specified number of beans.
+goodHole(int hole) const, a private boolean function that checks if a hole number is valid.
+goodSide(Side s) const, a private boolean function that checks if a side is valid (either north or south).
+isValidMove(Side s, int hole) const, a private boolean function that checks if a move (sowing beans) is valid.
+
+Game:The private section of the class includes:
+
+m_board, an instance of the Board class representing the game board.
+m_northPlayer and m_southPlayer, pointers to the players on the north and south sides, respectively.
+m_currentPlayer, a Side variable indicating the current player's side.
+
+Player class is split into derived classes with it as the abstract base class:
+
+HumanPlayer is interactive and prompts chooseMove. BadPlayer is not interactive and selects first valid move.
+
+2) SmartPlayer description:
+SmartPlayer is a bit more complicated.
+
+For restricting time: The function takes a Timer object ac, a constant reference to the board b, the player's side s, and references to bestHole and value.
+It checks for a timeout or maximum depth and sets bestHole to -1 and evaluates the board using evaluate() if the base case is met.
+It iterates over each hole on the player's side, checking for valid moves using completeMove().
+For each valid move, it creates a copy of the board, performs the move, and recursively calls chooseMove() on the updated board and the opponent's side.
+It keeps track of the first valid move to initialize value and bestHole. After evaluating each move, it updates value and bestHole if a better move is found.
+
+The chooseMove() function utilizes a minimax algorithm with alpha-beta pruning to evaluate possible moves and choose the best move for the player.
+
+The SmartPlayer::evaluate() function calculates a heuristic evaluation score for a given board state. It considers the number of beans in play for each side (north and south) and the number of beans in each pot (n_pot and s_pot). If one side has no beans in play, the function determines the winner based on the total number of beans in the pots. The evaluation score is calculated as the difference between the total number of beans and pots for the smart player's side and the opponent's side.
+
+Additionally, the class has a private helper function completeMove() that performs the actual move on the board and updates the game state.
+
+3) PsuedoCode: 
+
+------------------------------------------------------------------------
+bool Board::sow(Side s, int hole, Side& endSide, int& endHole) {
+    if no move no pot
+        Return false.
+
+    if either have 0 beans
+        Return false.
+
+    set hole and side values
+
+    If side is SOUTH:
+        Set counter
+        While counter has beans
+            if currenthole no beans
+                set north
+                Set beans to m_nHoles value.
+            
+            If currentside is SOUTH:
+                If currenthole is less than m_nHoles - 1:
+                    add 1
+                    add south_vector[currenthole] by 1.
+                Else:
+                    If s is SOUTH:
+                        set no beans
+                        add south_vector[currenthole] by 1.
+            
+            Else:
+                If beans
+                    Decrement by 1.
+                    add north_vector[currenthole] by 1.
+                Else:
+                    Set currentside to SOUTH.
+                    add south_vector[currenthole] by 1.
+            
+            Decrement beans in south_vector[hole] by 1.
+            Decrement counter by 1.
+    
+    Else for north
+        Set counter to the number of beans in north_vector[hole].
+        
+        while has beans
+                if no beans
+                Set to SOUTH.
+            
+            If currentside is SOUTH:
+                If currenthole is less than m_nHoles - 1:
+                    add currenthole by 1.
+                    add south_vector[currenthole] by 1.
+                Else:
+                    Set to NORTH.
+                    add bean to north_vector[currenthole]
+            
+            Else:
+                If currenthole is greater than 0:
+                    Decrement by 1.
+                    add north_vector[currenthole] by 1.
+            
+            lose a bean
+            lose counter by 1.
+    
+    clear hole
+    
+    Set endHole to the value of currenthole.
+    Set endSide to the value of currentside.
+    Return true.
+    
+------------------------------------------------------------------------
+
+void chooseMove(in: player, board; out: bestHole, value):
+		if no move for player exists (i.e., game is over),
+			bestHole = -1
+			value = value of this position (i.e., +∞, -∞, or 0)
+			return
+		if the criterion says we should not search below this node
+			bestHole = -1
+			value = value of this position
+			return
+		for every hole h the player can choose
+			"make" the move h
+			chooseMove(opponent, board, h2, v2)
+			"unmake" the move
+			if v2 is better for the player than best seen so far,
+				bestHole = h
+				value = v2
+		return
+
+------------------------------------------------------------------------
+
+bool Game::move(Side s):
+    set end hole and side
+
+    if SOUTH:
+        hole moves as south chooses
+        if not robot
+            tell player to choose hole
+
+        if can sow bean
+            display
+            play bean
+            play board
+            tell turn
+            
+            else 
+                move endhole respectively to other side
+
+    for North //same thing as south
+       hole moves as south chooses
+        if not robot
+            tell player to choose hole
+
+        if can sow bean
+            display
+            play bean
+            play board
+            tell turn
+            
+            else 
+                move endhole respectively to other side
+
+
+    m_currentPlayer = opponent(m_currentPlayer)
+
+    if no beans playing
+        display
+        print sweep
+        game ends
+    
+    if no beans playing for the opposite side 
+        display
+        print sweep
+        game ends
+
+    return true
+
+------------------------------------------------------------------------
+
+4) Note: My code is not efficient and might not work (did not test) for long game moves where there are a lot of beans and the players end up cycling the board. I don't think this was talked about in the spec tho. 
+
+5) Test Cases:
+
+    //general board
+    Board b(3, 2);
+	assert(b.holes() == 3  &&  b.totalBeans() == 12  && b.beans(SOUTH, POT) == 0  &&  b.beansInPlay(SOUTH) == 6);
+	b.setBeans(SOUTH, 1, 1);
+	b.moveToPot(SOUTH, 2, SOUTH);
+	assert(b.totalBeans() == 11  &&  b.beans(SOUTH, 1) == 1  &&
+	b.beans(SOUTH, 2) == 0  &&  b.beans(SOUTH, POT) == 2  &&
+    b.beansInPlay(SOUTH) == 3);
+	Side es;
+	int eh;
+	b.sow(SOUTH, 3, es, eh);
+	assert(es == NORTH  &&  eh == 3  &&  b.beans(SOUTH, 3) == 0  && b.beans(NORTH, 3) == 3  &&  b.beans(SOUTH, POT) == 3  &&
+	b.beansInPlay(SOUTH) == 1  &&  b.beansInPlay(NORTH) == 7);
+
+	//checks that the board is initialized correctly
+    assert(wrong.beans(SOUTH, 1) == 0);
+	assert(wrong.totalBeans() == 0);
+	assert(wrong.beansInPlay(NORTH) == 0);
+	assert(wrong.beans(SOUTH, 0) == 0);
+	assert(wrong.beansInPlay(SOUTH) == 0);
+	assert(wrong.beans(NORTH, 1) == 0);
+	assert(wrong.holes() == 1);
+	assert(wrong.beans(NORTH, 0) == 0);
+
+    //beans
+	assert(b.beans(NORTH, 43) == -1);
+	assert(b.beans(NORTH, 0) == 0); 
+
+    //move to pot
+    assert(!b.moveToPot(NORTH, 7, SOUTH));
+	assert(b.moveToPot(NORTH, 6, NORTH)); //0 beans in hole
+	assert(b.totalBeans() == 48);
+	assert(b.beansInPlay(NORTH) == 20);
+	assert(b.moveToPot(NORTH, 6, NORTH));
+	assert(b.beans(NORTH, 6) == 0); 
+	assert(b.beansInPlay(NORTH) == 24); 
+
+    //sow
+	Board b1(2, 0);
+	b1.setBeans(NORTH, 1, 5);
+	int eh;
+	Side es;
+	assert(!b1.sow(NORTH, 2, es, eh)); //cannot sow an empty hole
+	assert(b1.sow(NORTH, 1, es, eh)); 
+    assert(!b1.sow(NORTH, 0, es, eh)); //cannot sow a pot
+
+	//humanplayer
+    HumanPlayer hp("Marge");
+	assert(hp.name() == "Marge"  &&  hp.isInteractive());
+	BadPlayer bp("Homer");
+	assert(bp.name() == "Homer"  &&  !bp.isInteractive());
+	SmartPlayer sp("Lisa");
+    assert(sp.name() == "Lisa"  &&  !sp.isInteractive());
+    Board b(3, 2);
+    b.setBeans(SOUTH, 2, 0);
+    cout << "=========" << endl;
+    int n = hp.chooseMove(b, SOUTH);
+    cout << "=========" << endl;
+    assert(n == 1  ||  n == 3);
+    n = bp.chooseMove(b, SOUTH);
+    assert(n == 1  ||  n == 3);
+    n = sp.chooseMove(b, SOUTH);
+	assert(n == 1  ||  n == 3);
+
+
+    //bad and smart
+    BadPlayer bp1("Jonny");
+	SmartPlayer bp2("Ben");
+	Board b(3, 2);
+	Game g(b, &bp1, &bp2);
+	g.play();
+
+    //general game
+    BadPlayer bp1("Bart");
+	    BadPlayer bp2("Homer");
+	    Board b(3, 0);
+	    b.setBeans(SOUTH, 1, 2);
+	    b.setBeans(NORTH, 2, 1);
+	    b.setBeans(NORTH, 3, 2);
+	    Game g(b, &bp1, &bp2);
+	    bool over;
+	    bool hasWinner;
+	    Side winner;
+	      //    Homer
+	      //   0  1  2
+	      // 0         0
+	      //   2  0  0
+	      //    Bart
+	    g.status(over, hasWinner, winner);
+	    assert(!over && g.beans(NORTH, POT) == 0 && g.beans(SOUTH, POT) == 0 &&
+		g.beans(NORTH, 1) == 0 && g.beans(NORTH, 2) == 1 && g.beans(NORTH, 3) == 2 &&
+		g.beans(SOUTH, 1) == 2 && g.beans(SOUTH, 2) == 0 && g.beans(SOUTH, 3) == 0);
+
+	    g.move(SOUTH);
+	      //   0  1  0
+	      // 0         3
+	      //   0  1  0
+	    g.status(over, hasWinner, winner);
+	    assert(!over && g.beans(NORTH, POT) == 0 && g.beans(SOUTH, POT) == 3 &&
+		g.beans(NORTH, 1) == 0 && g.beans(NORTH, 2) == 1 && g.beans(NORTH, 3) == 0 &&
+		g.beans(SOUTH, 1) == 0 && g.beans(SOUTH, 2) == 1 && g.beans(SOUTH, 3) == 0);
+
+	    g.move(NORTH);
+	      //   1  0  0
+	      // 0         3
+	      //   0  1  0
+	    g.status(over, hasWinner, winner);
+	    assert(!over && g.beans(NORTH, POT) == 0 && g.beans(SOUTH, POT) == 3 &&
+		g.beans(NORTH, 1) == 1 && g.beans(NORTH, 2) == 0 && g.beans(NORTH, 3) == 0 &&
+		g.beans(SOUTH, 1) == 0 && g.beans(SOUTH, 2) == 1 && g.beans(SOUTH, 3) == 0);
+
+	    g.move(SOUTH);
+	      //   1  0  0
+	      // 0         3
+	      //   0  0  1
+	    g.status(over, hasWinner, winner);
+	    assert(!over && g.beans(NORTH, POT) == 0 && g.beans(SOUTH, POT) == 3 &&
+		g.beans(NORTH, 1) == 1 && g.beans(NORTH, 2) == 0 && g.beans(NORTH, 3) == 0 &&
+		g.beans(SOUTH, 1) == 0 && g.beans(SOUTH, 2) == 0 && g.beans(SOUTH, 3) == 1);
+
+	    g.move(NORTH);
+	      //   0  0  0
+	      // 1         4
+	      //   0  0  0
+	    g.status(over, hasWinner, winner);
+	    assert(over && g.beans(NORTH, POT) == 1 && g.beans(SOUTH, POT) == 4 &&
+		g.beans(NORTH, 1) == 0 && g.beans(NORTH, 2) == 0 && g.beans(NORTH, 3) == 0 &&
+		g.beans(SOUTH, 1) == 0 && g.beans(SOUTH, 2) == 0 && g.beans(SOUTH, 3) == 0);
+	    assert(hasWinner && winner == SOUTH);
+
+
+
